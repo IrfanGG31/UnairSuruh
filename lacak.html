@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lacak Order — UNAIR SURUH</title>
+<meta name="description" content="Lacak status order UNAIR SURUH dengan kode order dan 4 digit terakhir nomor WhatsApp.">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="icon" href="public/images/unair-suruh-logo-sm.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="lacak">
+<div id="site-top"></div>
+<main>
+  <header class="page-hero"><div class="container">
+    <div class="crumbs"><a href="index.html">Beranda</a> / Lacak Order</div>
+    <h1>Lacak Order</h1>
+    <p>Masukkan kode order (contoh <b>US-2610-017</b>) dan 4 digit terakhir nomor WhatsApp yang kamu pakai saat memesan.</p>
+  </div></header>
+
+  <section class="section" style="padding-top:32px"><div class="container narrow">
+    <form class="card" id="lf" novalidate>
+      <div class="row2">
+        <div class="field"><label for="l-code">Kode order</label><input class="input" id="l-code" placeholder="US-2610-017" autocapitalize="characters" required></div>
+        <div class="field"><label for="l-wa">4 digit terakhir WA</label><input class="input" id="l-wa" inputmode="numeric" maxlength="4" placeholder="1234" required></div>
+      </div>
+      <p class="err" id="l-err" style="margin-bottom:10px"></p>
+      <button class="btn btn-navy btn-block" type="submit">Cek Status</button>
+    </form>
+    <div id="result" style="margin-top:16px"></div>
+  </div></section>
+</main>
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id), E = US.esc;
+  let current = null;
+
+  function render(){
+    const o = US.findOrder(current); if (!o) return;
+    const idx = o.status === 'batal' ? -1 : US.STATUS.findIndex(s => s[0] === o.status);
+    const waitingAkad = o.status === 'diterima' && o.akad && !o.akad.approvedAt && o.akad.state !== 'revisi';
+    const tl = US.STATUS.map((s, i) => {
+      const cls = i < idx || (i === idx && o.status === 'selesai') ? 'done' : i === idx ? 'now' : '';
+      const sub = i === 0 ? US.fmtDate(o.createdAt) : i === 1 && o.akad?.approvedAt ? `Disetujui ${US.fmtDate(o.akad.approvedAt)}` : i === 1 && waitingAkad ? 'Menunggu persetujuanmu' : '';
+      return `<li class="${cls}"><span class="dot">${cls === 'done' ? '✓' : ''}</span><b>${s[1]}</b><small>${sub}</small></li>`;
+    }).join('');
+    const workers = US.store.read('us_workers', []); const w = workers.find(x => x.id === o.worker);
+    const s = US.settings();
+
+    let akad = '';
+    if (o.akad) {
+      const a = o.akad;
+      akad = `<div class="card akad"><h3>📜 Akad Digital <span class="status-pill">v${a.version}</span></h3>
+        <p style="font-size:13px;margin-top:4px">Dikirim ${US.fmtDate(a.sentAt)}</p>
+        <div class="summary" style="margin-top:12px;background:#fff">
+          <div class="r"><span>Layanan</span><span>${E(o.serviceName)} — ${E(o.sub)}</span></div>
+          <div class="r"><span>Jadwal</span><span>${E(a.schedule || (o.detail.date + ' ' + o.detail.time))}</span></div>
+          <div class="r"><span>Lingkup kerja</span><span>${E(a.scope)}</span></div>
+          ${o.private ? `<div class="r"><span>Ruang privat</span><span>Mitra ${E(o.gender)}</span></div>` : ''}
+          <div class="r total"><span>Biaya layanan</span><span>Rp 0 · GRATIS</span></div>
+        </div>
+        <p style="font-size:13px">Tip/ujrah untuk mitra bersifat <b>sukarela</b> dan 100% untuk mitra. Tidak ada potongan platform.</p>
+        ${a.approvedAt ? `<div class="note" style="margin:12px 0 0">✅ Kamu menyetujui akad ini pada ${US.fmtDate(a.approvedAt)}.</div>`
+          : a.state === 'revisi' ? `<div class="note warn" style="margin:12px 0 0">✏️ Permintaan revisi terkirim: "${E(a.revisionNote)}". Admin akan mengirim akad baru.</div>`
+          : `<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button class="btn btn-gold" id="a-ok" style="flex:1">Setuju & Mulai</button><button class="btn btn-ghost" id="a-rev" style="flex:1">Minta Revisi</button></div>`}
+      </div>`;
+    } else if (o.status === 'diterima') {
+      akad = `<div class="card"><h3>⏳ Menunggu konfirmasi admin</h3><p style="margin-top:6px;font-size:14px">Admin sedang menyiapkan rincian pekerjaan (akad). Kamu akan diminta menyetujuinya di halaman ini sebelum pekerjaan dimulai.</p>
+        <a class="btn btn-wa btn-sm" style="margin-top:12px" target="_blank" rel="noopener" href="${US.waLink(`Halo Admin, saya mau cek order ${o.code}.`)}">Hubungi Admin</a></div>`;
+    }
+
+    const worker = w ? `<div class="card"><h3>Mitra yang ditugaskan</h3>
+      <div class="testi" style="border:0;padding:12px 0 0"><div class="who"><span class="av">${E(w.name[0])}</span><span><b>${E(w.name)}</b><span>${E(w.faculty || 'Mitra UNAIR SURUH')} · ${E(w.gender)} · ★ ${w.rating || '-'}</span></span></div></div></div>` : '';
+
+    const tip = o.status === 'selesai' || o.status === 'dikerjakan' ? `<div class="card"><h3>Mau kasih tip ke mitra? (opsional)</h3>
+      <p style="font-size:14px;margin-top:6px">Sepenuhnya sukarela. Transfer langsung ke mitra, tanpa potongan.</p>
+      <p style="font-size:14px;margin-top:8px"><b>${E(w?.payout || s.bank || 'Info rekening/QRIS mitra akan dikirim via WhatsApp.')}</b></p></div>` : '';
+
+    const rate = o.status === 'selesai' ? (o.rating ? `<div class="card"><h3>Terima kasih atas ratingnya!</h3><p style="margin-top:6px">${'★'.repeat(o.rating)} ${o.review ? '— "' + E(o.review) + '"' : ''}</p></div>`
+      : `<div class="card"><h3>Beri rating</h3><div class="stars-input" id="stars" role="radiogroup" aria-label="Rating">${[1,2,3,4,5].map(n => `<button type="button" data-n="${n}" aria-label="${n} bintang">★</button>`).join('')}</div>
+        <div class="field" style="margin-top:10px"><textarea class="textarea" id="rv" placeholder="Ceritakan pengalamanmu (boleh tampil sebagai testimoni)"></textarea></div>
+        <button class="btn btn-navy" id="rv-send">Kirim Rating</button></div>`) : '';
+
+    $('result').innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+        <div><small style="color:var(--muted)">Kode order</small><h2 style="font-size:24px">${E(o.code)}</h2></div>
+        <span class="status-pill">${E(US.statusLabel(o.status))}</span></div>
+        <p style="margin:6px 0 16px;font-size:14px">${E(o.serviceName)} — ${E(o.sub)} · ${E(o.detail.from)}</p>
+        ${o.status === 'batal' ? '<div class="note warn">Order ini dibatalkan.</div>' : `<ul class="timeline">${tl}</ul>`}
+      </div>${akad}${worker}${tip}${rate}`;
+
+    $('a-ok')?.addEventListener('click', () => {
+      US.updateOrder(o.code, x => { x.akad.approvedAt = new Date().toISOString(); x.akad.state = 'disetujui'; x.status = 'akad'; US.log(x, 'Customer', `Menyetujui akad v${x.akad.version}`); });
+      US.toast('Akad disetujui. Pekerjaan siap dijadwalkan.'); render();
+    });
+    $('a-rev')?.addEventListener('click', () => {
+      const note = prompt('Apa yang perlu direvisi?'); if (!note) return;
+      US.updateOrder(o.code, x => { x.akad.state = 'revisi'; x.akad.revisionNote = note; US.log(x, 'Customer', `Minta revisi akad v${x.akad.version}: ${note}`); });
+      US.toast('Permintaan revisi terkirim.'); render();
+    });
+    let stars = 0;
+    document.querySelectorAll('#stars button').forEach(b => b.addEventListener('click', () => {
+      stars = +b.dataset.n; document.querySelectorAll('#stars button').forEach(x => x.classList.toggle('on', +x.dataset.n <= stars));
+    }));
+    $('rv-send')?.addEventListener('click', () => {
+      if (!stars) return US.toast('Pilih jumlah bintang dulu.');
+      US.updateOrder(o.code, x => { x.rating = stars; x.review = $('rv').value.trim(); x.ratedAt = new Date().toISOString(); US.log(x, 'Customer', `Memberi rating ${stars}`); });
+      US.toast('Terima kasih!'); render();
+    });
+  }
+
+  $('lf').addEventListener('submit', e => {
+    e.preventDefault();
+    const code = $('l-code').value.trim().toUpperCase(), last = $('l-wa').value.trim();
+    const o = US.findOrder(code);
+    if (!o || !/^\d{4}$/.test(last) || !o.wa.endsWith(last)) {
+      $('l-err').textContent = 'Order tidak ditemukan. Periksa kode dan 4 digit nomor WA.'; $('l-err').style.display = 'block'; $('result').innerHTML = ''; return;
+    }
+    $('l-err').style.display = 'none'; current = code; render();
+  });
+  const q = new URLSearchParams(location.search).get('kode');
+  if (q) { $('l-code').value = q; $('l-wa').focus(); }
+})();
+</script>
+</body>
+</html>

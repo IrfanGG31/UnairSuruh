@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Daftar Jadi Mitra — UNAIR SURUH</title>
+<meta name="description" content="Jadi mitra UNAIR SURUH: penghasilan fleksibel di sela jadwal kuliah. Wajib mahasiswa dengan KTM.">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="icon" href="public/images/unair-suruh-logo-sm.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="mitra">
+<div id="site-top"></div>
+<main>
+  <header class="page-hero"><div class="container">
+    <div class="crumbs"><a href="index.html">Beranda</a> / Daftar Mitra</div>
+    <h1>Jadi Mitra UNAIR SURUH</h1>
+    <p>Penghasilan fleksibel di sela kuliah. Lingkup kerja jelas sebelum ambil job, tip 100% untuk kamu, rekam jejak tercatat untuk job berikutnya.</p>
+    <div class="mitra-perks"><span>Jadwal fleksibel</span><span>Tanpa potongan tip</span><span>Mitra cewe & cowo</span><span>UNAIR diutamakan</span></div>
+  </div></header>
+
+  <section class="section" style="padding-top:32px"><div class="container narrow">
+    <form class="card" id="mf" novalidate>
+      <h3 style="margin-bottom:14px">Data diri</h3>
+      <div class="row2">
+        <div class="field"><label for="m-name">Nama lengkap</label><input class="input" id="m-name" name="name" required><span class="err">Wajib diisi.</span></div>
+        <div class="field"><label for="m-wa">Nomor WhatsApp</label><input class="input" id="m-wa" name="wa" type="tel" inputmode="tel" required><span class="err">Wajib diisi.</span></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="m-nim">NIM</label><input class="input" id="m-nim" name="nim" required><span class="err">Wajib diisi.</span></div>
+        <div class="field"><label for="m-fak">Fakultas / Prodi</label><input class="input" id="m-fak" name="faculty" required><span class="err">Wajib diisi.</span></div>
+      </div>
+      <div class="field"><label>Gender</label><div class="seg"><label><input type="radio" name="gender" value="Perempuan" checked><span>Perempuan</span></label><label><input type="radio" name="gender" value="Laki-laki"><span>Laki-laki</span></label></div></div>
+      <div class="field"><label>Kendaraan yang dimiliki</label><div class="seg">
+        <label><input type="checkbox" name="vehicle" value="Motor"><span>Motor</span></label><label><input type="checkbox" name="vehicle" value="Mobil"><span>Mobil</span></label><label><input type="checkbox" name="vehicle" value="Pick-up/Tossa"><span>Pick-up/Tossa</span></label><label><input type="checkbox" name="vehicle" value="Tidak ada"><span>Tidak ada</span></label></div></div>
+      <div class="field"><label>Layanan yang bisa dikerjakan</label><div class="seg" id="m-skills"></div></div>
+      <div class="field"><label for="m-sched">Jadwal luang</label><input class="input" id="m-sched" name="schedule" placeholder="cth. Senin–Rabu sore, Sabtu–Minggu full"></div>
+      <div class="field"><label for="m-ktm">Foto KTM</label><input class="input" id="m-ktm" name="ktm" type="file" accept="image/*"><span class="hint">Versi demo: file tidak diunggah. Kirim foto KTM ke admin via WhatsApp setelah daftar.</span></div>
+      <label class="check"><input type="checkbox" id="m-ethic"><span>Saya menyetujui <b>kode etik mitra</b>: amanah, jujur, menjaga privasi customer, tidak meminta biaya di luar kesepakatan, dan tidak menerima pekerjaan yang melanggar aturan kampus.</span></label>
+      <p class="err" id="m-err">Centang persetujuan kode etik.</p>
+      <button class="btn btn-gold btn-block" type="submit">Kirim Pendaftaran</button>
+    </form>
+    <div id="m-ok" class="card success" hidden><div class="ok">✓</div><h3>Pendaftaran terkirim!</h3><p>Tim People akan memverifikasi datamu. Kirim foto KTM ke admin agar proses lebih cepat.</p>
+      <a class="btn btn-wa" id="m-wa-btn" style="margin-top:14px" target="_blank" rel="noopener">Kirim ke WhatsApp Admin</a></div>
+  </div></section>
+</main>
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id), f = $('mf');
+  $('m-skills').innerHTML = US.SERVICES.map(s => `<label><input type="checkbox" name="skills" value="${s.name}"><span>${s.name}</span></label>`).join('');
+  f.querySelectorAll('.input').forEach(i => i.addEventListener('input', () => i.closest('.field').classList.remove('invalid')));
+  f.addEventListener('submit', e => {
+    e.preventDefault();
+    const ok = ['name','wa','nim','faculty'].map(n => { const el = f.elements[n], v = el.value.trim() !== ''; el.closest('.field').classList.toggle('invalid', !v); return v; }).every(Boolean);
+    const eth = $('m-ethic').checked; $('m-err').style.display = eth ? 'none' : 'block';
+    if (!ok || !eth) return;
+    const fd = new FormData(f);
+    const w = { id: 'W' + Date.now().toString(36).toUpperCase(), name: fd.get('name').trim(), wa: US.normWa(fd.get('wa')), nim: fd.get('nim').trim(), faculty: fd.get('faculty').trim(),
+      gender: fd.get('gender'), vehicles: fd.getAll('vehicle'), skills: fd.getAll('skills'), schedule: fd.get('schedule'), status: 'pendaftar', rating: null, jobs: 0, createdAt: new Date().toISOString() };
+    const all = US.store.read('us_workers', []); all.push(w); US.store.write('us_workers', all);
+    $('m-wa-btn').href = US.waLink(`Halo Admin UNAIR SURUH, saya sudah daftar jadi mitra.\n\nNama: ${w.name}\nNIM: ${w.nim}\nFakultas: ${w.faculty}\nGender: ${w.gender}\nKendaraan: ${w.vehicles.join(', ') || '-'}\nLayanan: ${w.skills.join(', ') || '-'}\nJadwal: ${w.schedule || '-'}\n\n(Foto KTM saya lampirkan)`);
+    f.hidden = true; $('m-ok').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

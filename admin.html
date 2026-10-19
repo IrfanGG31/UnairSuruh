@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Web Admin — UNAIR SURUH</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="icon" href="public/images/unair-suruh-logo-sm.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+body{background:#f4f6fa}
+.adm-top{background:var(--navy);color:#fff;position:sticky;top:0;z-index:40}
+.adm-top .container{display:flex;align-items:center;justify-content:space-between;height:60px;gap:10px}
+.adm-tabs{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:60px;z-index:39}
+.adm-tabs .container{display:flex;gap:4px;overflow-x:auto}
+.adm-tabs button{padding:14px 14px;font-weight:600;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.adm-tabs button.on{color:var(--navy);border-color:var(--gold)}
+.adm{padding:20px 0 60px}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:800px){.kpis{grid-template-columns:repeat(5,1fr)}}
+.kpi{background:#fff;border-radius:14px;padding:14px;border:1px solid #e5e7eb}
+.kpi b{display:block;font-family:var(--font-display);font-size:26px;color:var(--navy)}
+.kpi span{font-size:12px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;background:#fff}
+.tbl th,.tbl td{padding:10px 12px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:top}
+.tbl th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:#fafbfc}
+.tbl tr.click{cursor:pointer}.tbl tr.click:hover td{background:var(--cream-soft)}
+.box{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
+.box-h{padding:14px 16px;border-bottom:1px solid #eef0f4;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.box-h h3{font-size:16px}
+.box-b{padding:16px}
+.grid2{display:grid;gap:16px}
+@media(min-width:960px){.grid2{grid-template-columns:1.3fr 1fr}}
+.kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
+.col{background:#eef1f6;border-radius:12px;padding:10px;min-height:120px}
+.col h4{font-size:13px;margin:0 0 8px;display:flex;justify-content:space-between}
+.oc{background:#fff;border-radius:10px;padding:10px;margin-bottom:8px;font-size:13px;cursor:pointer;border:1.5px solid transparent}
+.oc:hover{border-color:var(--gold)}
+.oc b{color:var(--navy);font-family:var(--font-display)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--cream);color:var(--navy);margin:2px 2px 0 0}
+.tag.priv{background:#fce7f3;color:#9d174d}.tag.wait{background:#fef3c7;color:#92400e}.tag.ok{background:#dcfce7;color:var(--success)}.tag.no{background:#fee2e2;color:var(--danger)}
+.log{font-size:12px;color:var(--muted);display:grid;gap:6px;max-height:220px;overflow:auto}
+.log div b{color:var(--navy)}
+.empty{padding:30px;text-align:center;color:var(--muted);font-size:14px}
+.login{max-width:420px;margin:60px auto;padding:0 16px}
+.demo-note{font-size:12px;background:#fff7ed;color:#9a3412;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="assets/js/data.js"></script>
+<script>
+/* Web Admin demo. Data disimpan di localStorage browser ini; produksi: Supabase (Auth + RLS + audit_log). */
+(function(){
+const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = iso => iso ? new Date(iso).toLocaleString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '-';
+const app = document.getElementById('app');
+const ROLES = {
+  owner:{ label:'Owner (CEO)', tabs:['dashboard','orders','workers','ujrah','content','settings'] },
+  ops:{ label:'Operasional (COO)', tabs:['dashboard','orders','workers','ujrah'] },
+  people:{ label:'People (CHRO)', tabs:['workers'] },
+  marketing:{ label:'Marketing (CMO)', tabs:['content'] }
+};
+const TAB_LABEL = { dashboard:'Dashboard', orders:'Order', workers:'Mitra', ujrah:'Ujrah & Rekap', content:'Konten Laman', settings:'Pengaturan' };
+let role = sessionStorage.getItem('us_admin_role'), tab = null, openCode = null;
+
+const orders = () => read('us_orders', []), workers = () => read('us_workers', []);
+const saveO = o => write('us_orders', o), saveW = w => write('us_workers', w);
+const audit = msg => { const a = read('us_audit', []); a.unshift({ at: new Date().toISOString(), by: ROLES[role].label, msg }); write('us_audit', a.slice(0, 300)); };
+const upd = (code, fn) => { const all = orders(); const o = all.find(x => x.code === code); if (!o) return; fn(o); saveO(all); return o; };
+const olog = (o, msg) => (o.log = o.log || []).push({ at: new Date().toISOString(), by: ROLES[role].label, msg });
+const toast = m => { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); } t.textContent = m; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); };
+const settings = () => Object.assign({}, US.DEFAULT_SETTINGS, read('us_settings', {}));
+const content = () => Object.assign({}, US.DEFAULT_CONTENT, read('us_content', {}));
+const waTo = (num, text) => `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+const site = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+
+function login(){
+  app.innerHTML = `<div class="login"><div class="card" style="text-align:center">
+    <img src="public/images/unair-suruh-logo.jpg" alt="" style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px">
+    <h2 style="font-size:22px">Web Admin UNAIR SURUH</h2><p style="font-size:14px;margin:6px 0 16px">Pilih peran untuk masuk.</p>
+    <div class="demo-note">Mode demo: login peran tanpa password dan data tersimpan di browser ini saja. Versi produksi memakai Supabase Auth (email + password).</div>
+    <div style="display:grid;gap:8px">${Object.entries(ROLES).map(([k, r]) => `<button class="btn btn-ghost btn-block" data-role="${k}">${r.label}</button>`).join('')}</div>
+    <a href="index.html" style="display:block;margin-top:14px;font-size:13px;color:var(--muted)">← Kembali ke website</a></div></div>`;
+  app.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { role = b.dataset.role; sessionStorage.setItem('us_admin_role', role); tab = null; render(); });
+}
+
+function render(){
+  if (!role || !ROLES[role]) return login();
+  const tabs = ROLES[role].tabs; if (!tabs.includes(tab)) tab = tabs[0];
+  app.innerHTML = `<div class="adm-top"><div class="container">
+      <a class="brand" href="index.html" target="_blank"><img src="public/images/unair-suruh-logo.jpg" alt="" width="36" height="36"><span>Admin<small>${E(ROLES[role].label)}</small></span></a>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff" id="logout">Keluar</button></div></div>
+    <div class="adm-tabs"><div class="container">${tabs.map(t => `<button data-tab="${t}" class="${t === tab ? 'on' : ''}">${TAB_LABEL[t]}</button>`).join('')}</div></div>
+    <div class="container adm" id="view"></div>`;
+  document.getElementById('logout').onclick = () => { sessionStorage.removeItem('us_admin_role'); role = null; render(); };
+  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; openCode = null; render(); });
+  ({ dashboard, orders: ordersView, workers: workersView, ujrah, content: contentView, settings: settingsView })[tab]();
+}
+const view = () => document.getElementById('view');
+
+/* ── Dashboard ── */
+function dashboard(){
+  const os = orders(), today = new Date().toDateString();
+  const rated = os.filter(o => o.rating), avg = rated.length ? (rated.reduce((a, o) => a + o.rating, 0) / rated.length).toFixed(1) : '-';
+  const wk = Date.now() - 7 * 864e5;
+  view().innerHTML = `<div class="kpis">
+      <div class="kpi"><b>${os.filter(o => new Date(o.createdAt).toDateString() === today).length}</b><span>Order hari ini</span></div>
+      <div class="kpi"><b>${os.filter(o => o.status === 'diterima' && (!o.akad || o.akad.state === 'revisi')).length}</b><span>Menunggu akad dikirim</span></div>
+      <div class="kpi"><b>${os.filter(o => new Date(o.createdAt) > wk).length}</b><span>Order 7 hari</span></div>
+      <div class="kpi"><b>${workers().filter(w => w.status === 'aktif').length}</b><span>Mitra aktif</span></div>
+      <div class="kpi"><b>${avg}</b><span>Rating rata-rata</span></div></div>
+    <div class="grid2" style="margin-top:16px">
+      <div class="box"><div class="box-h"><h3>Perlu tindakan</h3></div>${tableOrders(os.filter(o => ['diterima','akad'].includes(o.status)).slice(-8).reverse())}</div>
+      <div class="box"><div class="box-h"><h3>Audit log</h3></div><div class="box-b log">${read('us_audit', []).slice(0, 15).map(a => `<div>${fmt(a.at)} · <b>${E(a.by)}</b> — ${E(a.msg)}</div>`).join('') || '<div class="empty">Belum ada aktivitas.</div>'}</div></div>
+    </div>`;
+  bindRows();
+}
+function tableOrders(list){
+  if (!list.length) return '<div class="empty">Belum ada order. Coba buat order dari website.</div>';
+  return `<div class="table-scroll"><table class="tbl"><thead><tr><th>Kode</th><th>Layanan</th><th>Customer</th><th>Jadwal</th><th>Status</th></tr></thead><tbody>
+    ${list.map(o => `<tr class="click" data-code="${E(o.code)}"><td><b>${E(o.code)}</b></td><td>${E(o.serviceName)}${o.private ? ' <span class="tag priv">privat</span>' : ''}</td><td>${E(o.name)}</td><td>${E(o.detail.date)} ${E(o.detail.time)}</td><td>${statusTag(o)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function statusTag(o){
+  if (o.status === 'batal') return '<span class="tag no">Batal</span>';
+  if (o.status === 'diterima') return !o.akad ? '<span class="tag wait">Kirim akad</span>' : o.akad.state === 'revisi' ? '<span class="tag no">Revisi akad</span>' : '<span class="tag wait">Menunggu customer</span>';
+  return `<span class="tag ${o.status === 'selesai' ? 'ok' : ''}">${E(US.statusLabel(o.status))}</span>`;
+}
+function bindRows(){ view().querySelectorAll('[data-code]').forEach(r => r.onclick = () => { tab = 'orders'; openCode = r.dataset.code; render(); }); }
+
+/* ── Orders ── */
+function ordersView(){
+  const os = orders();
+  const cols = [['diterima','Diterima'],['akad','Akad OK'],['ditugaskan','Ditugaskan'],['dikerjakan','Dikerjakan'],['selesai','Selesai']];
+  view().innerHTML = `<div class="grid2"><div class="box"><div class="box-h"><h3>Kanban order (${os.length})</h3><button class="btn btn-ghost btn-sm" id="csv">Ekspor CSV</button></div>
+      <div class="box-b"><div class="kanban">${cols.map(c => { const l = os.filter(o => o.status === c[0]).reverse(); return `<div class="col"><h4>${c[1]}<span>${l.length}</span></h4>${l.map(o => `<div class="oc" data-code="${E(o.code)}"><b>${E(o.code)}</b><div>${E(o.serviceName)} · ${E(o.name)}</div><div>${statusTag(o)}${o.private ? '<span class="tag priv">privat ' + E(o.gender) + '</span>' : ''}</div></div>`).join('')}</div>`; }).join('')}</div></div></div>
+    <div class="box" id="detail"><div class="empty">Pilih order untuk melihat detail.</div></div></div>`;
+  view().querySelectorAll('[data-code]').forEach(r => r.onclick = () => { openCode = r.dataset.code; orderDetail(); });
+  document.getElementById('csv').onclick = () => {
+    const rows = [['kode','dibuat','layanan','sub','nama','wa','lokasi','tujuan','tanggal','jam','privat','status','mitra','rating']].concat(os.map(o => [o.code, o.createdAt, o.serviceName, o.sub, o.name, o.wa, o.detail.from, o.detail.to, o.detail.date, o.detail.time, o.private ? o.gender : '', o.status, (workers().find(w => w.id === o.worker) || {}).name || '', o.rating || '']));
+    download('orders.csv', rows);
+  };
+  if (openCode) orderDetail();
+}
+function orderDetail(){
+  const o = orders().find(x => x.code === openCode), box = document.getElementById('detail'); if (!o || !box) return;
+  const ws = workers().filter(w => w.status === 'aktif'), eligible = ws.filter(w => !o.private || w.gender === o.gender);
+  const approved = !!(o.akad && o.akad.approvedAt);
+  const d = o.detail, r = (k, v) => v ? `<div class="r"><span>${k}</span><span>${E(v)}</span></div>` : '';
+  box.innerHTML = `<div class="box-h"><h3>${E(o.code)}</h3>${statusTag(o)}</div><div class="box-b">
+    <div class="summary">${r('Layanan', o.serviceName + ' — ' + o.sub)}${r('Customer', o.name)}${r('WhatsApp', '+' + o.wa)}${r('Lokasi', d.from)}${r('Tujuan', d.to)}${r('Jadwal', d.date + ' ' + d.time)}${r('Kendaraan', d.vehicle)}${r('Tenaga', d.crew)}${r('Catatan', d.notes)}${r('Ruang privat', o.private ? 'Ya — mitra ' + o.gender : '')}${o.rating ? r('Rating', '★'.repeat(o.rating) + (o.review ? ' "' + o.review + '"' : '')) : ''}</div>
+    <a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="${waTo(o.wa, `Halo ${o.name}, ini Admin UNAIR SURUH untuk order ${o.code}.`)}">Chat customer</a>
+
+    <h4 style="margin:18px 0 8px">1. Akad digital ${o.akad ? `<span class="tag">v${o.akad.version}</span>` : ''}</h4>
+    ${o.akad?.state === 'revisi' ? `<div class="note warn">Customer minta revisi: "${E(o.akad.revisionNote)}"</div>` : ''}
+    ${approved ? `<div class="note">Disetujui customer ${fmt(o.akad.approvedAt)}. Mengubah lingkup kerja akan meminta akad ulang.</div>` : ''}
+    <div class="field"><label for="ak-scope">Lingkup pekerjaan</label><textarea class="textarea" id="ak-scope">${E(o.akad?.scope || `${o.sub}. ${d.notes || ''}`.trim())}</textarea></div>
+    <div class="field"><label for="ak-sch">Jadwal</label><input class="input" id="ak-sch" value="${E(o.akad?.schedule || d.date + ' ' + d.time)}"></div>
+    <button class="btn btn-navy btn-sm" id="ak-send" ${['dikerjakan','selesai','batal'].includes(o.status) ? 'disabled' : ''}>${o.akad ? 'Kirim akad baru' : 'Kirim akad'}</button>
+
+    <h4 style="margin:18px 0 8px">2. Tugaskan mitra</h4>
+    ${o.private ? `<p style="font-size:13px;margin-bottom:8px">Order ruang privat: hanya mitra <b>${E(o.gender)}</b> yang ditampilkan.</p>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="select" id="as-w" style="flex:1;min-width:180px"><option value="">— pilih mitra —</option>${eligible.map(w => `<option value="${w.id}" ${w.id === o.worker ? 'selected' : ''}>${E(w.name)} · ${E(w.gender)} · ${E((w.vehicles || []).join('/'))}</option>`).join('')}</select>
+      <button class="btn btn-navy btn-sm" id="as-go" ${approved ? '' : 'disabled title="Akad belum disetujui"'}>Tugaskan</button></div>
+    ${!eligible.length ? '<p style="font-size:12px;color:var(--danger);margin-top:6px">Belum ada mitra aktif yang sesuai. Tambahkan/aktifkan di tab Mitra.</p>' : ''}
+    ${!approved ? '<p style="font-size:12px;color:var(--muted);margin-top:6px">Mitra bisa ditugaskan setelah customer menyetujui akad.</p>' : ''}
+
+    <h4 style="margin:18px 0 8px">3. Status</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" data-st="dikerjakan">Mulai dikerjakan</button>
+      <button class="btn btn-ghost btn-sm" data-st="selesai">Tandai selesai</button>
+      <button class="btn btn-ghost btn-sm" data-st="batal" style="color:var(--danger)">Batalkan</button></div>
+
+    <h4 style="margin:18px 0 8px">Catatan internal & log</h4>
+    <div style="display:flex;gap:8px"><input class="input" id="nt" placeholder="Tambah catatan internal"><button class="btn btn-ghost btn-sm" id="nt-go">Simpan</button></div>
+    <div class="log" style="margin-top:10px">${(o.log || []).slice().reverse().map(l => `<div>${fmt(l.at)} · <b>${E(l.by)}</b> — ${E(l.msg)}</div>`).join('')}</div>
+  </div>`;
+
+  box.querySelector('#ak-send').onclick = () => {
+    const scope = box.querySelector('#ak-scope').value.trim(); if (!scope) return toast('Isi lingkup pekerjaan.');
+    upd(o.code, x => {
+      const v = (x.akad?.version || 0) + 1; if (x.akad) (x.akadHistory = x.akadHistory || []).push(x.akad);
+      x.akad = { version: v, scope, schedule: box.querySelector('#ak-sch').value.trim(), sentAt: new Date().toISOString(), approvedAt: null, state: 'dikirim' };
+      if (x.status !== 'diterima') { x.status = 'diterima'; } olog(x, `Mengirim akad v${v}`);
+    });
+    audit(`Kirim akad ${o.code}`);
+    window.open(waTo(o.wa, `Halo ${o.name}, rincian pekerjaan untuk order ${o.code} sudah siap. Mohon cek dan setujui di sini:\n${site()}lacak.html?kode=${o.code}\n\nLayanan ini GRATIS, tip ke mitra sukarela.`), '_blank', 'noopener');
+    toast('Akad terkirim. Menunggu persetujuan customer.'); render();
+  };
+  box.querySelector('#as-go').onclick = () => {
+    const id = box.querySelector('#as-w').value, w = workers().find(x => x.id === id); if (!w) return toast('Pilih mitra.');
+    if (o.private && w.gender !== o.gender) return toast('Gender mitra tidak sesuai untuk ruang privat.');
+    upd(o.code, x => { x.worker = id; if (['akad','ditugaskan'].includes(x.status)) x.status = 'ditugaskan'; olog(x, `Menugaskan ${w.name}`); });
+    audit(`Assign ${w.name} ke ${o.code}`); toast('Mitra ditugaskan.'); render();
+  };
+  box.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {
+    const st = b.dataset.st, cur = orders().find(x => x.code === o.code);
+    if (st === 'dikerjakan' && !(cur.akad && cur.akad.approvedAt)) return toast('Tidak bisa: akad belum disetujui customer.');
+    if (st === 'dikerjakan' && !cur.worker) return toast('Tugaskan mitra dulu.');
+    if (st === 'selesai' && cur.status !== 'dikerjakan') return toast('Order harus berstatus Dikerjakan dulu.');
+    if (st === 'batal' && !confirm('Batalkan order ini?')) return;
+    upd(o.code, x => { x.status = st; olog(x, `Status → ${US.statusLabel(st)}`); });
+    if (st === 'selesai') { const all = workers(), w = all.find(x => x.id === cur.worker); if (w) { w.jobs = (w.jobs || 0) + 1; saveW(all); } }
+    audit(`Status ${o.code} → ${st}`); toast('Status diperbarui.'); render();
+  });
+  box.querySelector('#nt-go').onclick = () => { const v = box.querySelector('#nt').value.trim(); if (!v) return; upd(o.code, x => olog(x, `Catatan: ${v}`)); render(); };
+}
+
+/* ── Workers ── */
+function workersView(){
+  const ws = workers(), os = orders();
+  const rating = w => { const r = os.filter(o => o.worker === w.id && o.rating); return r.length ? (r.reduce((a, o) => a + o.rating, 0) / r.length).toFixed(1) : '-'; };
+  view().innerHTML = `<div class="box"><div class="box-h"><h3>Mitra (${ws.length})</h3><div style="display:flex;gap:8px"><a class="btn btn-ghost btn-sm" href="daftar-mitra.html" target="_blank">Form pendaftaran</a><button class="btn btn-navy btn-sm" id="w-add">+ Tambah manual</button></div></div>
+    ${ws.length ? `<div class="table-scroll"><table class="tbl"><thead><tr><th>Nama</th><th>Gender</th><th>Kendaraan</th><th>Layanan</th><th>Job</th><th>Rating</th><th>Status</th><th></th></tr></thead><tbody>
+    ${ws.map(w => `<tr><td><b>${E(w.name)}</b><br><small style="color:var(--muted)">${E(w.nim || '')} · ${E(w.faculty || '')}</small></td><td>${E(w.gender)}</td><td>${E((w.vehicles || []).join(', '))}</td><td style="max-width:220px">${E((w.skills || []).join(', '))}</td><td>${w.jobs || 0}</td><td>${rating(w)}</td>
+      <td><span class="tag ${w.status === 'aktif' ? 'ok' : w.status === 'ditolak' || w.status === 'nonaktif' ? 'no' : 'wait'}">${E(w.status)}</span></td>
+      <td style="white-space:nowrap">${w.status === 'pendaftar' ? `<button class="btn btn-sm btn-gold" data-w="${w.id}" data-s="aktif">Setujui</button> <button class="btn btn-sm btn-ghost" data-w="${w.id}" data-s="ditolak">Tolak</button>`
+        : w.status === 'aktif' ? `<button class="btn btn-sm btn-ghost" data-w="${w.id}" data-s="nonaktif">Nonaktifkan</button>` : `<button class="btn btn-sm btn-ghost" data-w="${w.id}" data-s="aktif">Aktifkan</button>`}
+        <a class="btn btn-sm btn-ghost" target="_blank" rel="noopener" href="${waTo(w.wa, 'Halo ' + w.name + ', ini Admin UNAIR SURUH.')}">WA</a></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Belum ada mitra. Pendaftar dari form Daftar Mitra akan muncul di sini.</div>'}</div>`;
+  view().querySelectorAll('[data-w]').forEach(b => b.onclick = () => { const all = workers(), w = all.find(x => x.id === b.dataset.w); w.status = b.dataset.s; saveW(all); audit(`Mitra ${w.name} → ${w.status}`); render(); });
+  document.getElementById('w-add').onclick = () => {
+    const name = prompt('Nama mitra:'); if (!name) return;
+    const gender = prompt('Gender (Perempuan/Laki-laki):', 'Perempuan'); if (!['Perempuan','Laki-laki'].includes(gender)) return toast('Gender harus "Perempuan" atau "Laki-laki".');
+    const wa = (prompt('Nomor WA:') || '').replace(/\D/g, '').replace(/^0/, '62');
+    const all = workers(); all.push({ id: 'W' + Date.now().toString(36).toUpperCase(), name, gender, wa, vehicles: [], skills: [], status: 'aktif', jobs: 0, createdAt: new Date().toISOString() });
+    saveW(all); audit(`Tambah mitra ${name}`); render();
+  };
+}
+
+/* ── Ujrah ── */
+function ujrah(){
+  const ws = workers(), os = orders().filter(o => o.status === 'selesai' && o.worker);
+  const rows = ws.map(w => ({ w, done: os.filter(o => o.worker === w.id) })).filter(x => x.done.length);
+  view().innerHTML = `<div class="note">Zero pricing: platform tidak memungut biaya dan tidak memotong tip. Rekap ini untuk transparansi job per mitra & insentif internal.</div>
+    <div class="box"><div class="box-h"><h3>Rekap job selesai per mitra</h3><button class="btn btn-ghost btn-sm" id="u-csv">Ekspor CSV</button></div>
+    ${rows.length ? `<table class="tbl"><thead><tr><th>Mitra</th><th>Job selesai</th><th>Rating</th><th>Order</th></tr></thead><tbody>${rows.map(x => { const r = x.done.filter(o => o.rating); return `<tr><td><b>${E(x.w.name)}</b></td><td>${x.done.length}</td><td>${r.length ? (r.reduce((a, o) => a + o.rating, 0) / r.length).toFixed(1) : '-'}</td><td>${x.done.map(o => E(o.code)).join(', ')}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty">Belum ada job selesai.</div>'}</div>`;
+  document.getElementById('u-csv').onclick = () => download('rekap-mitra.csv', [['mitra','job_selesai','order']].concat(rows.map(x => [x.w.name, x.done.length, x.done.map(o => o.code).join(' ')])));
+}
+
+/* ── Content (CMS) ── */
+function contentView(){
+  const c = content();
+  view().innerHTML = `<div class="grid2"><div>
+    <div class="box"><div class="box-h"><h3>Hero & banner promo</h3><a class="btn btn-ghost btn-sm" href="index.html" target="_blank">Pratinjau</a></div><div class="box-b">
+      <div class="field"><label>Judul hero (boleh HTML: &lt;span class="accent"&gt;)</label><input class="input" id="c-title" value="${E(c.heroTitle)}"></div>
+      <div class="field"><label>Subjudul hero</label><textarea class="textarea" id="c-sub">${E(c.heroSub)}</textarea></div>
+      <label class="check"><input type="checkbox" id="c-pon" ${c.promo.on ? 'checked' : ''}><span><b>Tampilkan banner promo</b></span></label>
+      <div class="field"><label>Teks promo</label><input class="input" id="c-ptext" value="${E(c.promo.text)}"></div>
+      <div class="row2"><div class="field"><label>Link promo</label><input class="input" id="c-plink" value="${E(c.promo.link)}"></div><div class="field"><label>Teks tombol</label><input class="input" id="c-plt" value="${E(c.promo.linkText)}"></div></div>
+    </div></div>
+    <div class="box" style="margin-top:16px"><div class="box-h"><h3>Video TikTok</h3></div><div class="box-b">
+      <p style="font-size:13px;margin-bottom:8px">Satu video per baris: <code>ID video | views | caption</code>. Urutan baris = urutan tampil.</p>
+      <textarea class="textarea" id="c-vid" style="min-height:160px;font-family:monospace;font-size:12px">${E(c.videos.map(v => `${v.id} | ${v.views} | ${v.caption}`).join('\n'))}</textarea></div></div>
+  </div><div>
+    <div class="box"><div class="box-h"><h3>Testimoni</h3></div><div class="box-b">
+      <p style="font-size:13px;margin-bottom:8px">Format: <code>Nama | keterangan | isi testimoni</code></p>
+      <textarea class="textarea" id="c-tes" style="min-height:140px;font-size:13px">${E(c.testimonials.map(t => `${t.name} | ${t.role} | ${t.text}`).join('\n'))}</textarea>
+      <div id="c-rev"></div></div></div>
+    <div class="box" style="margin-top:16px"><div class="box-h"><h3>FAQ</h3></div><div class="box-b">
+      <p style="font-size:13px;margin-bottom:8px">Format: <code>Pertanyaan | Jawaban</code></p>
+      <textarea class="textarea" id="c-faq" style="min-height:180px;font-size:13px">${E(c.faq.map(f => f.join(' | ')).join('\n'))}</textarea></div></div>
+    <div class="box" style="margin-top:16px"><div class="box-h"><h3>Area layanan</h3></div><div class="box-b"><input class="input" id="c-area" value="${E(c.areas.join(', '))}"></div></div>
+  </div></div>
+  <div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-gold" id="c-save">Simpan konten</button><button class="btn btn-ghost" id="c-reset">Kembalikan default</button></div>`;
+  const reviews = orders().filter(o => o.rating >= 4 && o.review);
+  document.getElementById('c-rev').innerHTML = reviews.length ? `<p style="font-size:13px;margin:12px 0 6px"><b>Ulasan dari order selesai</b> — klik untuk menambahkan:</p>${reviews.map(o => `<button class="tag" style="cursor:pointer" data-rv="${E(o.code)}">+ ${E(o.name)}: "${E(o.review.slice(0, 40))}"</button>`).join('')}` : '';
+  view().querySelectorAll('[data-rv]').forEach(b => b.onclick = () => { const o = orders().find(x => x.code === b.dataset.rv); const ta = document.getElementById('c-tes'); ta.value += `\n${o.name} | Customer ${o.serviceName} | ${o.review}`; });
+  const lines = id => document.getElementById(id).value.split('\n').map(l => l.split('|').map(s => s.trim())).filter(p => p[0]);
+  document.getElementById('c-save').onclick = () => {
+    const v = id => document.getElementById(id).value.trim();
+    const next = { heroTitle: v('c-title'), heroSub: v('c-sub'),
+      promo: { on: document.getElementById('c-pon').checked, text: v('c-ptext'), link: v('c-plink'), linkText: v('c-plt') },
+      videos: lines('c-vid').map(p => ({ id: p[0].replace(/\D/g, ''), views: p[1] || '', caption: p[2] || '' })).filter(x => x.id),
+      testimonials: lines('c-tes').map(p => ({ name: p[0], role: p[1] || '', text: p[2] || '', stars: 5 })).filter(x => x.text),
+      faq: lines('c-faq').filter(p => p[1]).map(p => [p[0], p.slice(1).join(' | ')]),
+      areas: v('c-area').split(',').map(s => s.trim()).filter(Boolean) };
+    write('us_content', next); audit('Memperbarui konten laman'); toast('Konten disimpan. Buka pratinjau untuk melihat.');
+  };
+  document.getElementById('c-reset').onclick = () => { if (confirm('Kembalikan semua konten ke default?')) { localStorage.removeItem('us_content'); audit('Reset konten ke default'); render(); } };
+}
+
+/* ── Settings ── */
+function settingsView(){
+  const s = settings();
+  view().innerHTML = `<div class="box narrow" style="margin:0"><div class="box-h"><h3>Pengaturan</h3></div><div class="box-b">
+    <div class="field"><label>Nomor WhatsApp admin (format 62…)</label><input class="input" id="s-wa" value="${E(s.wa)}"></div>
+    <div class="field"><label>Jam operasional</label><input class="input" id="s-hours" value="${E(s.hours)}"></div>
+    <div class="row2"><div class="field"><label>Link TikTok</label><input class="input" id="s-tt" value="${E(s.tiktok)}"></div><div class="field"><label>Link Instagram</label><input class="input" id="s-ig" value="${E(s.instagram)}"></div></div>
+    <div class="field"><label>Info rekening/QRIS default untuk tip (opsional)</label><input class="input" id="s-bank" value="${E(s.bank)}" placeholder="Biasanya dikirim per mitra lewat WA"></div>
+    <button class="btn btn-gold" id="s-save">Simpan</button>
+    <hr style="border:0;border-top:1px solid #eef0f4;margin:20px 0">
+    <h4 style="margin-bottom:8px">Data demo</h4>
+    <p style="font-size:13px;margin-bottom:10px">Semua data tersimpan di browser ini. Hapus untuk memulai dari kosong.</p>
+    <button class="btn btn-ghost btn-sm" id="s-wipe" style="color:var(--danger)">Hapus semua order, mitra & log</button>
+  </div></div>`;
+  document.getElementById('s-save').onclick = () => {
+    const v = id => document.getElementById(id).value.trim();
+    const wa = v('s-wa').replace(/\D/g, '').replace(/^0/, '62'); if (wa.length < 10) return toast('Nomor WA tidak valid.');
+    write('us_settings', { wa, hours: v('s-hours'), tiktok: v('s-tt'), instagram: v('s-ig'), bank: v('s-bank') }); audit('Memperbarui pengaturan'); toast('Pengaturan disimpan.');
+  };
+  document.getElementById('s-wipe').onclick = () => { if (confirm('Yakin hapus semua data demo?')) { ['us_orders','us_workers','us_audit'].forEach(k => localStorage.removeItem(k)); toast('Data dihapus.'); render(); } };
+}
+
+function download(name, rows){
+  const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = name; a.click();
+}
+
+render();
+})();
+</script>
+</body>
+</html>

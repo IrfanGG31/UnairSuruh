@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Layanan — UNAIR SURUH</title>
+<meta name="description" content="Detail layanan UNAIR SURUH. Semua layanan gratis, tip sukarela untuk mitra.">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="icon" href="public/images/unair-suruh-logo-sm.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="layanan">
+<div id="site-top"></div>
+<main>
+  <header class="page-hero"><div class="container">
+    <div class="crumbs"><a href="index.html">Beranda</a> / <a href="index.html#layanan">Layanan</a> / <span id="crumb"></span></div>
+    <div style="display:flex;gap:14px;align-items:center">
+      <span class="svc-icon" id="h-icon" style="width:56px;height:56px;background:var(--gold)"></span>
+      <div><h1 id="h-name"></h1><span class="badge" style="background:#dcfce7;color:var(--success);margin-top:6px">GRATIS · Rp 0</span></div>
+    </div>
+    <p id="h-desc"></p>
+    <div class="hero-ctas"><button class="btn btn-gold" id="h-order">Pesan Layanan Ini</button><a class="btn btn-wa" id="h-wa" target="_blank" rel="noopener"><span class="ico"></span>Tanya via WA</a></div>
+  </div></header>
+
+  <section class="section"><div class="container two-col">
+    <div class="card"><h3>Pilihan layanan</h3><div id="subs" style="margin-top:6px"></div></div>
+    <div>
+      <div class="card"><h3>Termasuk</h3><ul class="list-check" id="inc"></ul></div>
+      <div class="card"><h3>Tidak termasuk</h3><ul class="list-check list-x" id="exc"></ul></div>
+      <div class="card akad"><h3>Gratis, tip sukarela</h3><p style="margin-top:6px;font-size:14px">Tidak ada biaya layanan, DP, atau invoice. Jika puas, kamu bisa memberi tip langsung ke mitra — tanpa potongan platform.</p></div>
+    </div>
+  </div></section>
+
+  <section class="section bg-cream" id="faq-sec"><div class="container">
+    <div class="section-head"><span class="eyebrow">FAQ</span><h2>Pertanyaan seputar layanan ini</h2></div>
+    <div class="faq" id="faq"></div>
+  </div></section>
+
+  <section class="section"><div class="container">
+    <div class="section-head"><span class="eyebrow">Layanan Lain</span><h2>Butuh bantuan lain?</h2></div>
+    <div class="services" id="others"></div>
+  </div></section>
+</main>
+<div id="site-footer"></div>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+(function(){
+  const slug = new URLSearchParams(location.search).get('s');
+  const s = US.svc(slug) || US.SERVICES[0], $ = id => document.getElementById(id);
+  document.title = `${s.name} Gratis — UNAIR SURUH`;
+  $('crumb').textContent = s.name; $('h-name').textContent = s.name; $('h-desc').textContent = s.desc;
+  $('h-icon').innerHTML = US.icon(s.icon);
+  $('h-order').dataset.order = s.slug;
+  $('h-wa').href = US.waLink(`Halo Admin UNAIR SURUH, saya mau tanya layanan ${s.name}.`);
+  $('h-wa').querySelector('.ico').innerHTML = US.WA_SVG;
+  $('subs').innerHTML = s.subs.map(x => `<div class="sub-svc"><div><b>${US.esc(x[0])}</b><small>${US.esc(x[1])}</small></div><button class="btn btn-ghost btn-sm" data-order="${s.slug}">Pesan</button></div>`).join('');
+  $('inc').innerHTML = s.includes.map(x => `<li>${US.esc(x)}</li>`).join('');
+  $('exc').innerHTML = s.excludes.map(x => `<li>${US.esc(x)}</li>`).join('');
+  const faq = s.faq.concat(US.content().faq.slice(0, 2));
+  $('faq').innerHTML = faq.map(f => `<details><summary>${US.esc(f[0])}</summary><p>${US.esc(f[1])}</p></details>`).join('');
+  $('others').innerHTML = US.SERVICES.filter(x => x.slug !== s.slug).map(x => `
+    <a class="service" href="layanan.html?s=${x.slug}"><span class="badge badge-free">GRATIS</span><span class="svc-icon">${US.icon(x.icon)}</span><h3>${x.name}</h3><p>${x.short}</p></a>`).join('');
+})();
+</script>
+</body>
+</html>
